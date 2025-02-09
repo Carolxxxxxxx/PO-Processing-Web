@@ -1,49 +1,46 @@
 import streamlit as st
 import os
-import time
+import pandas as pd
 
-st.title("📜 PO 处理网站")
-st.write("请上传 PO 文件和价格表，系统会自动生成 INVOICE 和 PACKING LIST")
+# ========== 1. 确保 `INVOICE.xlsx` 存在 ==========
+def check_invoice_file():
+    """
+    检查 `INVOICE.xlsx` 是否存在，如果不存在，则创建一个默认模板
+    """
+    if not os.path.exists("INVOICE.xlsx"):
+        wb = pd.ExcelWriter("INVOICE.xlsx", engine="openpyxl")
+        wb.close()
+        st.warning("⚠️ `INVOICE.xlsx` 文件未找到，已自动创建一个空白模板！请上传您的 `INVOICE.xlsx` 文件或重新运行 `template_filler.py`。")
+    else:
+        st.success("✅ `INVOICE.xlsx` 文件已找到，准备就绪！")
 
-# 上传 PO PDF 文件
-uploaded_pdf = st.file_uploader("📂 上传 PO 文件", type=["pdf"])
-# 上传价格表
-uploaded_price_list = st.file_uploader("📂 上传价格表", type=["xlsx"])
 
-if uploaded_pdf and uploaded_price_list:
-    # **使用 `/tmp/` 目录存储临时文件（适用于 Streamlit Cloud）**
-    pdf_path = "/tmp/temp_po.pdf"
-    price_path = "/tmp/temp_price.xlsx"
+# ========== 2. Streamlit 页面 ==========
+st.title("📄 PO 订单处理工具")
+st.write("使用此工具自动解析 PO 文件，并生成 INVOICE 和 PACKING LIST。")
 
-    with open(pdf_path, "wb") as f:
-        f.write(uploaded_pdf.getbuffer())
+# ========== 3. 检查 `INVOICE.xlsx` 是否存在 ==========
+check_invoice_file()
 
-    with open(price_path, "wb") as f:
-        f.write(uploaded_price_list.getbuffer())
+# ========== 4. 允许用户上传 `INVOICE.xlsx` ==========
+uploaded_file = st.file_uploader("📂 上传 `INVOICE.xlsx` 文件", type=["xlsx"])
+if uploaded_file:
+    with open("INVOICE.xlsx", "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    st.success("✅ `INVOICE.xlsx` 文件已成功上传！请刷新页面并重新运行程序。")
 
-    st.success("✅ 文件上传成功，点击按钮开始处理！")
+# ========== 5. 运行 `template_filler.py` 生成 INVOICE ==========
+if st.button("🚀 生成 INVOICE 和 PACKING LIST"):
+    os.system("python3 template_filler.py")
+    if os.path.exists("INVOICE_2024-00-90868.xlsx"):
+        st.success("✅ INVOICE 生成成功！")
+        st.download_button("⬇️ 下载 INVOICE", open("INVOICE_2024-00-90868.xlsx", "rb"), "INVOICE.xlsx")
+    else:
+        st.error("❌ 生成 INVOICE 失败，请检查 `template_filler.py` 是否正确运行！")
 
-    if st.button("🚀 处理 PO 并生成 Excel"):
-        # **确保 `template_filler.py` 在当前目录**
-        if os.path.exists("template_filler.py"):
-            # **执行 `template_filler.py` 并等待处理完成**
-            result = os.system(f"python3 template_filler.py {pdf_path} {price_path}")
-            time.sleep(3)
+if os.path.exists("PACKING_LIST_2024-00-90868.xlsx"):
+    st.success("✅ PACKING LIST 生成成功！")
+    st.download_button("⬇️ 下载 PACKING LIST", open("PACKING_LIST_2024-00-90868.xlsx", "rb"), "PACKING_LIST.xlsx")
 
-            # **检查是否生成了文件**
-            invoice_path = "/tmp/INVOICE_2024-00-90868.xlsx"
-            packing_list_path = "/tmp/PACKING_LIST_2024-00-90868.xlsx"
-
-            if os.path.exists(invoice_path):
-                with open(invoice_path, "rb") as f:
-                    st.download_button("📥 下载 INVOICE.xlsx", f, file_name="INVOICE.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            else:
-                st.error("❌ `INVOICE.xlsx` 文件未找到，请检查 `template_filler.py` 是否正常运行！")
-
-            if os.path.exists(packing_list_path):
-                with open(packing_list_path, "rb") as f:
-                    st.download_button("📥 下载 PACKING_LIST.xlsx", f, file_name="PACKING_LIST.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            else:
-                st.error("❌ `PACKING_LIST.xlsx` 文件未找到，请检查 `template_filler.py` 是否正常运行！")
-        else:
-            st.error("❌ `template_filler.py` 文件不存在，请确保它在当前目录！")
+# ========== 6. 提示用户上传 `INVOICE.xlsx` ==========
+st.info("📌 如果遇到 `INVOICE.xlsx` 丢失的问题，请上传文件或检查 `template_filler.py` 是否正确运行！")
