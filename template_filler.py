@@ -3,28 +3,7 @@ import openpyxl
 import re
 import os
 
-# ========== 1. 确保文件存在（如果没有，则创建） ==========
-def check_and_create_templates():
-    """
-    如果 `INVOICE.xlsx` 或 `PACKING_LIST.xlsx` 不存在，则创建空白 Excel 作为模板
-    """
-    if not os.path.exists("INVOICE.xlsx"):
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws["J9"] = "PO Number"  # 添加 PO 号标题
-        ws["B14"] = "Marks"
-        ws["C14"] = "Quantities and Descriptions"
-        wb.save("INVOICE.xlsx")
-        print("📂 INVOICE.xlsx 文件未找到，已自动创建！")
-
-    if not os.path.exists("PACKING_LIST.xlsx"):
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws["K11"] = "PO Number"
-        wb.save("PACKING_LIST.xlsx")
-        print("📂 PACKING_LIST.xlsx 文件未找到，已自动创建！")
-
-# ========== 2. 解析 PDF，提取 PO 号、Part Number、箱数 ==========
+# ========== 1. 解析 PDF，提取 PO 号、Part Number、箱数 ==========
 def extract_data_from_pdf(pdf_path):
     """
     解析 PDF 提取 Part Number、订单数量 和 PO 号
@@ -42,31 +21,35 @@ def extract_data_from_pdf(pdf_path):
         ordered_quantities = []
         po_number = None
 
-        # 1. 提取 PO 号
+        # 1️⃣ 提取 PO 号
         po_match = re.search(r"Order Number\s*([\d-]+)", text)
         if po_match:
             po_number = po_match.group(1)
 
-        # 2. 提取 Part Number 和 订单数量
+        # 2️⃣ 解析 Part Number 和 订单数量
         lines = text.split("\n")
+
         for i in range(len(lines)):
+            # 仅匹配 `BHBxxxx-CLRK` 或 `BHWxxxx-CLRK`
             match = re.search(r"(BHB\d{3,}-CLRK|BHW\d{3,}-CLRK)", lines[i])
             if match:
                 part_number = match.group(1)
-                ordered_match = re.findall(r"(\d{2,}\.00)", lines[i])  # 提取类似 "600.00"
+
+                # 🔹 确保订单数量（箱数）是数字
+                ordered_match = re.findall(r"(\d{2,}\.00)", lines[i])  # 只匹配类似 `600.00`
                 if ordered_match:
                     ordered_quantity = int(float(ordered_match[-1]))  # 获取最后一个匹配数值
                 else:
                     ordered_quantity = "解析错误"
                     print(f"⚠️ 无法解析数量：{lines[i]}")
 
+                # **确保 `Part Number` 和 `订单数量` 绑定**
                 part_numbers.append(part_number)
                 ordered_quantities.append(ordered_quantity)
 
         return part_numbers, ordered_quantities, po_number
 
-
-# ========== 3. 读取价格表 ==========
+# ========== 2. 读取价格表 ==========
 def load_price_list(price_path):
     """
     读取价格表，构建 {Part Number: (Price, Units per Case, NW, GW)} 字典
@@ -86,8 +69,7 @@ def load_price_list(price_path):
 
     return price_dict
 
-
-# ========== 4. 填充 INVOICE ==========
+# ========== 3. 填充 INVOICE ==========
 def fill_invoice(template_path, output_path, part_numbers, ordered_quantities, po_number, price_list):
     """
     填充 INVOICE.xlsx：
@@ -116,19 +98,18 @@ def fill_invoice(template_path, output_path, part_numbers, ordered_quantities, p
     wb.save(output_path)
     print(f"✅ INVOICE 生成成功：{output_path}")
 
-
-# ========== 5. 填充 PACKING LIST ==========
+# ========== 4. 填充 PACKING LIST ==========
 def fill_packing_list(template_path, output_path, part_numbers, ordered_quantities, po_number, price_list):
     """
     填充 PACKING LIST.xlsx：
     - K11 填入 PO 号
-    - **A17, A18...（合并单元格）填入 Part Number**
-    - **D17, D18, D19... 填充 Excel 公式 `=F17 * P17`**
-    - **F17, F18, F19... 填入 箱数**
-    - **H17, H18, H19... 填充 Excel 公式 `=F17 * N17`（价格计算）**
-    - **N17, N18, N19... 从 `Clark11款纸袋报价更新.xlsx` 提取 E 列数据（单价）**
-    - **O17, O18, O19... 从 `Clark11款纸袋报价更新.xlsx` 提取 D 列数据（净重 NW）**
-    - **P17, P18, P19... 填入 一箱装多少只**
+    - A17, A18...（合并单元格）填入 Part Number
+    - D17, D18... **填充 Excel 公式 `=F17 * P17`**
+    - F17, F18... 填入 箱数
+    - H17, H18... **填充 Excel 公式 `=F17 * N17`（价格计算）**
+    - N17, N18... **从 `Clark11款纸袋报价更新.xlsx` 提取 E 列数据（单价）**
+    - O17, O18... **从 `Clark11款纸袋报价更新.xlsx` 提取 D 列数据（净重 NW）**
+    - P17, P18... 填入 一箱装多少只
     """
     wb = openpyxl.load_workbook(template_path)
     ws = wb.active
@@ -140,7 +121,7 @@ def fill_packing_list(template_path, output_path, part_numbers, ordered_quantiti
         row = start_row + i
         price, units_per_case, nw, gw = price_list.get(part_number, ("N/A", 250, "N/A", "N/A"))
 
-        ws[f"A{row}"] = part_number  # 确保合并单元格
+        ws[f"A{row}"] = part_number
         ws[f"D{row}"] = f"=F{row} * P{row}"
         ws[f"F{row}"] = ordered_quantity
         ws[f"H{row}"] = f"=F{row} * N{row}"
@@ -151,12 +132,9 @@ def fill_packing_list(template_path, output_path, part_numbers, ordered_quantiti
     wb.save(output_path)
     print(f"✅ PACKING LIST 生成成功：{output_path}")
 
-
-# ========== 6. 主程序 ==========
+# ========== 5. 主程序 ==========
 if __name__ == "__main__":
-    check_and_create_templates()
-
-    pdf_path = "PO2024-00-90868(6403830).pdf"
+    pdf_path = "PO2024-00-90868.pdf"
     price_list_path = "Clark11款纸袋报价更新.xlsx"
     invoice_template = "INVOICE.xlsx"
     packing_list_template = "PACKING_LIST.xlsx"
