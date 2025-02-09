@@ -5,15 +5,19 @@ import re
 import os
 
 # **获取命令行参数**（确保正确解析上传的 `PO` 和 `价格表`）
-pdf_path = sys.argv[1] if len(sys.argv) > 1 else None
-price_path = sys.argv[2] if len(sys.argv) > 2 else None
-
-if not pdf_path or not price_path:
+if len(sys.argv) < 3:
     print("❌ 错误：未提供 `PO.pdf` 或 `价格表.xlsx`，请检查上传！")
-    sys.exit(1)  # **终止程序**
+    sys.exit(1)
+
+pdf_path = sys.argv[1]
+price_path = sys.argv[2]
 
 # ========== **解析 PO 并提取数据** ==========
 def extract_data_from_pdf(pdf_path):
+    if not os.path.exists(pdf_path):
+        print(f"❌ PO 文件 `{pdf_path}` 未找到！")
+        return None, None, None
+
     with pdfplumber.open(pdf_path) as pdf:
         text = pdf.pages[0].extract_text()
         if not text:
@@ -45,6 +49,10 @@ def extract_data_from_pdf(pdf_path):
 
 # ========== **读取价格表** ==========
 def load_price_list(price_path):
+    if not os.path.exists(price_path):
+        print(f"❌ 价格表 `{price_path}` 未找到！")
+        return {}
+
     wb = openpyxl.load_workbook(price_path)
     ws = wb.active
     price_dict = {}
@@ -60,9 +68,13 @@ def load_price_list(price_path):
 
 # ========== **生成 INVOICE 和 PACKING LIST** ==========
 part_numbers, ordered_quantities, po_number = extract_data_from_pdf(pdf_path)
-if part_numbers and ordered_quantities and po_number:
-    price_list = load_price_list(price_path)
-    print(f"✅ 解析 PO 成功，发现 {len(part_numbers)} 个产品。")
-else:
+if not part_numbers or not ordered_quantities or not po_number:
     print("❌ PO 解析失败，请检查文件格式。")
-    sys.exit(1)  # **终止程序**
+    sys.exit(1)
+
+price_list = load_price_list(price_path)
+if not price_list:
+    print("❌ 价格表解析失败，请检查文件格式。")
+    sys.exit(1)
+
+print(f"✅ 解析 PO 成功，发现 {len(part_numbers)} 个产品。")
