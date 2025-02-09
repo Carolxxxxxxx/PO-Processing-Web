@@ -1,6 +1,6 @@
-
 cd /Users/carol/Desktop/POPICI
-nano template_filler.pyimport pdfplumber
+nano template_filler.py
+import pdfplumber
 import openpyxl
 import re
 import os
