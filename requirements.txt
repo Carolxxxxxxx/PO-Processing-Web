@@ -1,0 +1,11 @@
+streamlit
+pdfplumber
+openpyxl
+pandas
+numpy
+python-docx
+re
+os
+sys
+subprocess
+
