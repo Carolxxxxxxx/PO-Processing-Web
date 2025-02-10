@@ -2,9 +2,9 @@ import streamlit as st
 import os
 import subprocess
 
-# 📌 设置文件存储路径
-PO_PATH = "PO_LATEST.pdf"
-PRICE_PATH = "Clark11款纸袋报价更新.xlsx"
+# 📌 设置文件存储路径（确保路径一致）
+PO_PATH = "/tmp/PO_LATEST.pdf"
+PRICE_PATH = "/tmp/Clark11款纸袋报价更新.xlsx"
 
 # 🎯 **Streamlit Web 页面**
 st.title("📄 PO 订单处理工具")
@@ -38,16 +38,17 @@ if st.button("🚀 生成 INVOICE 和 PACKING LIST"):
         # **调用 template_filler.py**
         result = subprocess.run(["python3", "template_filler.py", PO_PATH, PRICE_PATH], capture_output=True, text=True)
 
-        # **检查 `template_filler.py` 的输出**
+        # **检查 `template_filler.py` 运行日志**
         st.text_area("📜 运行日志", result.stdout + result.stderr, height=200)
 
         if result.returncode != 0:
             st.error("❌ `template_filler.py` 运行失败，请检查日志！")
         else:
-            # **检查并提供下载链接**
-            invoice_file = "INVOICE_LATEST.xlsx"
-            packing_list_file = "PACKING_LIST_LATEST.xlsx"
+            # **设置导出文件路径**
+            invoice_file = f"/tmp/INVOICE_LATEST.xlsx"
+            packing_list_file = f"/tmp/PACKING_LIST_LATEST.xlsx"
 
+            # **检查 INVOICE 是否生成成功**
             if os.path.exists(invoice_file):
                 st.success("✅ INVOICE 生成成功！")
                 with open(invoice_file, "rb") as f:
@@ -55,6 +56,7 @@ if st.button("🚀 生成 INVOICE 和 PACKING LIST"):
             else:
                 st.error("❌ INVOICE 生成失败，请检查 `template_filler.py` 是否正确运行！")
 
+            # **检查 PACKING LIST 是否生成成功**
             if os.path.exists(packing_list_file):
                 st.success("✅ PACKING LIST 生成成功！")
                 with open(packing_list_file, "rb") as f:

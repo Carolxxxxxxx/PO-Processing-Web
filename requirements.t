@@ -1,3 +1,0 @@
-pdfplumber
-openpyxl
-streamlit
